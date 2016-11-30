@@ -6,10 +6,11 @@
 % and in the Matlab bind them"
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% cd ('E:\005-faks\CS767\CS767_project')
+cd ('E:\005-faks\CS767\CS767_project')
 
 % addpath('E:\005-faks\CS767\CS767_project')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% here come the links to other files
+%% Prep sample data
+% makeSampleData_01
