@@ -7,10 +7,16 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cd ('E:\005-faks\CS767\CS767_project')
-open('GUI_1.m')
-% addpath('E:\005-faks\CS767\CS767_project')
+open('GUI.m')
+
+addpath('E:\005-faks\CS767\CS767_project')
+addpath('E:\005-faks\CS767\CS767_project\GCmex2.0')
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Prep sample data
-% makeSampleData_01
+open('intelligentScissorSegm.m')
+open('Sandbox_1111.m')
+
+%% Get the analysis up and running
+open('gc_example.m')

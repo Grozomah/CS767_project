@@ -1291,7 +1291,7 @@ function create_crop_Callback(hObject, eventdata, handles)
         [y, x, z]=ind2sub(size(handles.SELECTimg), find(handles.SELECTimg>0));
         
         
-        %% save CT contour
+        %% save CT crop
         outImg=handles.CTimg(min(y):max(y),min(x):max(x),min(z):max(z));
         [FileName,PathName] = uiputfile({'*.am';'*.nrrd'},...
         'Where to save CT contour? Select same format as input!', handles.filepath.String);
@@ -1309,7 +1309,7 @@ function create_crop_Callback(hObject, eventdata, handles)
             nrrdWriter([PathName, FileName], outImg, pixelspacing, origin, encoding);
         end
         
-        %% save PET contour
+        %% save PET crop
         outImg=handles.PETimgSUV(min(y):max(y),min(x):max(x),min(z):max(z));
         [FileName,PathName] = uiputfile({'*.am';'*.nrrd'},...
         'Where to save PET contour? Select same format as input!', handles.filepath.String);
@@ -1327,7 +1327,7 @@ function create_crop_Callback(hObject, eventdata, handles)
             nrrdWriter([PathName, FileName], outImg, pixelspacing, origin, encoding);
         end
         
-        handles.console.String= ['> Contour exported.'];
+        handles.console.String= ['> Cropped data exported.'];
         guidata(hObject,handles);
         plotterfcn(hObject, handles)
     else
