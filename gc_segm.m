@@ -14,14 +14,25 @@ close all
 % im = im2double(rgb2gray(imread('outdoor_small.jpg')));
 
 PETin=am2mat('E:\005-faks\CS767\CS767_project\data\test_cropPET.am');
+CTin=am2mat('E:\005-faks\CS767\CS767_project\data\test_cropCT.am');
+
 PETimg=permute(PETin.data, [2, 1, 3]);
-im=PETimg(:,:,9);
+CTimg=permute(CTin.data, [2, 1, 3]);
 
 
-sz = size(im);
+slice=9;
+
+sz = size(PETimg(:,:,slice));
+
+im=zeros([sz,2]);
+im(:,:,1)=PETimg(:,:,slice);
+im(:,:,2)=CTimg(:,:,slice);
+
+
+
 
 % try to segment the image into k different regions
-k = 4;
+k = 2;
 
 % color space distance
 distance = 'sqEuclidean';
@@ -35,21 +46,25 @@ data=im(:);    % for grayscale
 [idx c] = kmeans(data, k, 'distance', distance,'maxiter',200);
 
 
+
+%% define Dc according to sense
 % calculate the data cost per cluster center
-% Dc = zeros([sz(1:2) k],'single');
 Dc = zeros([sz(1:2) k],'single');
-for ci=1:k
-    % use covariance matrix per cluster
+% for ci=1:k
+%     % use covariance matrix per cluster
+% %     icv = inv(cov(data(idx==ci,:)));    
 %     icv = inv(cov(data(idx==ci,:)));    
-    icv = inv(cov(data(idx==ci,:)));    
+% %     dif = data - repmat(c(ci,:), [size(data,1) 1]);
 %     dif = data - repmat(c(ci,:), [size(data,1) 1]);
-    dif = data - repmat(c(ci,:), [size(data,1) 1]);
-    
-    % data cost is minus log likelihood of the pixel to belong to each
-    % cluster according to its RGB value
+%     
+%     % data cost is minus log likelihood of the pixel to belong to each
+%     % cluster according to its RGB value
+% %     Dc(:,:,ci) = reshape(sum((dif*icv).*dif./2,2),sz(1:2));
 %     Dc(:,:,ci) = reshape(sum((dif*icv).*dif./2,2),sz(1:2));
-    Dc(:,:,ci) = reshape(sum((dif*icv).*dif./2,2),sz(1:2));
-end
+% end
+
+Dc(:,:,1)=(PETimg(:,:,slice)<5);
+Dc(:,:,2)=(PETimg(:,:,slice)>8);
 
 % cut the graph
 
@@ -74,10 +89,17 @@ gch = GraphCut('close', gch);
 
 % show results
 fig1=figure;
-imshow(im, []);
+imshow(PETimg(:,:,slice), []);
 truesize(fig1,[400 400])
+
 hold on;
-PlotLabels(L);
+ih=contour(L,[1], 'r');
+% colormap 'jet';
+% set(ih, 'AlphaData', L);
+hold off
+
+
+% PlotLabels(L);
 
 
 
@@ -98,8 +120,8 @@ LL(bL) = L(bL);
 Am = zeros(size(L));
 Am(bL) = .5;
 ih = imagesc(LL); 
-set(ih, 'AlphaData', Am);
-colorbar;
+set(ih, 'AlphaData', 0.5);
+% colorbar;
 colormap 'jet';
 
 disp(1)
