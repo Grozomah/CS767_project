@@ -101,7 +101,7 @@ function varargout = GUI(varargin)
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
 % Edit the above text to modify the response to help GUI
-% Last Modified by GUIDE v2.5 02-Dec-2016 16:28:19
+% Last Modified by GUIDE v2.5 07-Dec-2016 14:53:30
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -1223,27 +1223,54 @@ end
 
 
 %% Work in progress
-function clustering_Callback(hObject, eventdata, handles)
-    % calls a clustering segmentation method
+function gc_segm_Callback(hObject, eventdata, handles)
+    % calls a graph cut segmentation method
+    
+    %% Do we have all the data?
     if handles.flagPET==0;
         handles.console.String= ['> No PET image loaded!'];
         return
     end
-    handles.console.String= ['> Starting k-clustering segmentation ...'];
+    if handles.flagCT==0;
+        handles.console.String= ['> No CT image loaded!'];
+        return
+    end
+    if handles.flagSELECT==0;
+        handles.console.String= ['> No volume selected!'];
+        return
+    end
+    
+    handles.console.String= ['> Selecting image crop ...'];
     drawnow
 
-    handles.SEGMimg = k_clustering(handles.PETimgSUV);
-    handles.flagSEGM=1;
+    %% push the data to the segmentation function
+    % get coordinates of all the voxels in the interest, get min/max
+    [y, x, z]=ind2sub(size(handles.SELECTimg), find(handles.SELECTimg>0));
+
+    % figure out crop borders
+    CTcrop=handles.CTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+    PETcrop=handles.PETimgSUV(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+    SELECTcrop=handles.SELECTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
     
-    handles.console.String= ['> Completed k-clustering segmentation.'];
+    % call the segmentation and crop result to initially selected volume
+    out=gc_segm(CTcrop, PETcrop, SELECTcrop);
+    out= out .* handles.SELECTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
     
-    % mark end of calculation
-    load handel
-    sound(y(1:35000),Fs)
     
+    if handles.flagSEGM==0;
+        handles.SEGMimg=zeros(size(handles.PETimg));
+        handles.flagSEGM=1;
+    end
+    handles.SEGMimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1)= out;
+    
+    handles.console.String= ['> Graph cut completed.'];
+    guidata(hObject,handles);
+    plotterfcn(hObject, handles)
+
     guidata(hObject,handles);
     plotterfcn(hObject, handles)
 end
+
 function neighbour_Callback(hObject, ~, handles)
     indeces=find(handles.SELECTimg>0);
 %     neigh=find_mat_neighbours(handles.coordIDX, handles.matsize);

@@ -1,131 +1,81 @@
-function gc_example()
+function out=gc_segm(CTimg, PETimg, SELECTcrop)
 % An example of how to segment a color image according to pixel colors.
 % Fisrt stage identifies k distinct clusters in the color space of the
 % image. Then the image is segmented according to these regions; each pixel
 % is assigned to its cluster and the GraphCut poses smoothness constraint
 % on this labeling.
 
-% 
+out = zeros(size(CTimg));
+petValues=PETimg(SELECTcrop>0);
 
-close all
+outThresh   =quantile(petValues,0.2);
+inThresh    =quantile(petValues,0.85);
+disp(['In threshold: ', num2str(inThresh),', out threshold: ', num2str(outThresh)])
+%% how to erode 
 
-% read an image
-% im = im2double(imread('outdoor_small.jpg'));
-% im = im2double(rgb2gray(imread('outdoor_small.jpg')));
+se = strel('square',3);
 
-PETin=am2mat('E:\005-faks\CS767\CS767_project\data\test_cropPET.am');
-CTin=am2mat('E:\005-faks\CS767\CS767_project\data\test_cropCT.am');
+for slice=1:size(CTimg, 3);
 
-PETimg=permute(PETin.data, [2, 1, 3]);
-CTimg=permute(CTin.data, [2, 1, 3]);
+    slicePET=PETimg(:,:,slice);
+    sliceCT=CTimg(:,:,slice);
+    sz = size(slicePET);
 
+    im=zeros([sz,2]);
+    im(:,:,1)=slicePET;
+    im(:,:,2)=sliceCT;
+    
+    % try to segment the image into k different regions
+    k = 2;
 
-slice=9;
+    % color space distance
+    distance = 'sqEuclidean';
 
-sz = size(PETimg(:,:,slice));
+    % data cost maps - optimize this!
+    Dc = zeros([sz(1:2) k],'single');
 
-im=zeros([sz,2]);
-im(:,:,1)=PETimg(:,:,slice);
-im(:,:,2)=CTimg(:,:,slice);
+    defNotTumor = SELECTcrop(:,:,slice)-imerode(SELECTcrop(:,:,slice),se);
+    defNotTumor(slicePET<outThresh)=1;
+    
+    Dc(:,:,1)=defNotTumor;
+    Dc(:,:,2)=(slicePET>inThresh);
 
+    %% cut the graph 
 
-
-
-% try to segment the image into k different regions
-k = 2;
-
-% color space distance
-distance = 'sqEuclidean';
-
-% cluster the image colors into k regions
-% data = ToVector(im);    % for rgb
-data=im(:);    % for grayscale
-
-
-% [idx c] = kmeans(data, k, 'distance', distance,'maxiter',200);
-[idx c] = kmeans(data, k, 'distance', distance,'maxiter',200);
-
-
-
-%% define Dc according to sense
-% calculate the data cost per cluster center
-Dc = zeros([sz(1:2) k],'single');
-% for ci=1:k
-%     % use covariance matrix per cluster
-% %     icv = inv(cov(data(idx==ci,:)));    
-%     icv = inv(cov(data(idx==ci,:)));    
-% %     dif = data - repmat(c(ci,:), [size(data,1) 1]);
-%     dif = data - repmat(c(ci,:), [size(data,1) 1]);
-%     
-%     % data cost is minus log likelihood of the pixel to belong to each
-%     % cluster according to its RGB value
-% %     Dc(:,:,ci) = reshape(sum((dif*icv).*dif./2,2),sz(1:2));
-%     Dc(:,:,ci) = reshape(sum((dif*icv).*dif./2,2),sz(1:2));
-% end
-
-Dc(:,:,1)=(PETimg(:,:,slice)<5);
-Dc(:,:,2)=(PETimg(:,:,slice)>8);
-
-% cut the graph
-
-% smoothness term: 
-% constant part
-Sc = ones(k) - eye(k);
-% spatialy varying part
-% [Hc Vc] = gradient(imfilter(rgb2gray(im),fspecial('gauss',[3 3]),'symmetric'));
-[Hc Vc] = SpatialCues(im);
+    % smoothness term: 
+    % constant part
+    Sc = ones(k) - eye(k);
+    % spatialy varying part
+    % [Hc Vc] = gradient(imfilter(rgb2gray(im),fspecial('gauss',[3 3]),'symmetric'));
+    [Hc Vc] = SpatialCues(im);
 
 
-gch = GraphCut('open', Dc, 10*Sc, exp(-Vc*5), exp(-Hc*5));
-% [gch] = GraphCut('open', DataCost, SmoothnessCost, vC, hC);
-%  vC, hC:optional arrays defining spatialy varying smoothness cost.
+    gch = GraphCut('open', Dc, 10*Sc, exp(-Vc*5), exp(-Hc*5));
+    % [gch] = GraphCut('open', DataCost, SmoothnessCost, vC, hC);
+    %  vC, hC:optional arrays defining spatialy varying smoothness cost.
 
-[gch L] = GraphCut('expand',gch);
-% [gch labels] = GraphCut('expand', gch)
+    [gch L] = GraphCut('expand',gch);
+    % [gch labels] = GraphCut('expand', gch)
 
-gch = GraphCut('close', gch);
-%  'close': Close the graph and release allocated resources.
-%  [gch] = GraphCut('close', gch);
-
-% show results
-fig1=figure;
-imshow(PETimg(:,:,slice), []);
-truesize(fig1,[400 400])
-
-hold on;
-ih=contour(L,[1], 'r');
-% colormap 'jet';
-% set(ih, 'AlphaData', L);
-hold off
-
-
-% PlotLabels(L);
+    gch = GraphCut('close', gch);
+    %  'close': Close the graph and release allocated resources.
+    %  [gch] = GraphCut('close', gch);
+    
+    %% make sure the lesion is the one with values 1, not outside
+    if mean(slicePET(L>0)) < mean(slicePET(L==0))
+        outSlice= int8(L==0);
+    else
+        outSlice= int8(L>0);
+    end
+    
+    out(:,:,slice) = outSlice;
+    
+%     out(:,:,slice) = int8(Dc(:,:,1));
+end     % end for each slice
 
 
 
-%---------------- Aux Functions ----------------%
-function v = ToVector(im)
-% takes MxNx3 picture and returns (MN)x3 vector
-sz = size(im);
-v = reshape(im, [prod(sz(1:2)) 3]);
-
-%-----------------------------------------------%
-function ih = PlotLabels(L)
-
-L = single(L);
-
-bL = imdilate( abs( imfilter(L, fspecial('log'), 'symmetric') ) > 0.1, strel('disk', 1));
-LL = zeros(size(L),class(L));
-LL(bL) = L(bL);
-Am = zeros(size(L));
-Am(bL) = .5;
-ih = imagesc(LL); 
-set(ih, 'AlphaData', 0.5);
-% colorbar;
-colormap 'jet';
-
-disp(1)
-
+% Aux functions
 %-----------------------------------------------%
 function [hC vC] = SpatialCues(im)
 g = fspecial('gauss', [13 13], sqrt(13));
