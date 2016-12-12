@@ -15,7 +15,6 @@ addpath('E:\005-faks\CS767\CS767_project\GCmex2.0')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Prep sample data
-open('intelligentScissorSegm.m')
 open('Sandbox_1111.m')
 
 %% Get the analysis up and running
