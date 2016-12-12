@@ -10,6 +10,12 @@ out = zeros(size(CTimg));
 
 se = strel('square',3);
 
+%% define what IS tumor
+defTumor3d=zeros(size(PETimg));
+petValues=PETimg(SELECTcrop>0);
+defTumor3d(PETimg>min(quantile(petValues,0.85), 15))=1;
+
+
 %% define what is not tumor
 mse=[0 1 0; 1 1 1; 0 1 0];
 se3d = strel('arbitrary',mse, ones(3));
@@ -17,12 +23,8 @@ defNotTumor3d=ones(size(PETimg))-imerode(SELECTcrop, se3d); % everything not ins
 SELECTedge=logical((imdilate(SELECTcrop, se3d)-1)-SELECTcrop);
 
 % everything with values smaller than max edge value is not a lesion
-defNotTumor3d(PETimg<max(PETimg(SELECTedge)))=1; 
+defNotTumor3d(PETimg< min([max(PETimg(SELECTedge)), 10]))=1; 
 
-%% define what IS tumor
-defTumor3d=zeros(size(PETimg));
-petValues=PETimg(SELECTcrop>0);
-defTumor3d(PETimg>min(quantile(petValues,0.85), 15))=1;
 
 outThresh   = max(PETimg(SELECTedge));
 inThresh    = min(quantile(petValues,0.85), 15);
