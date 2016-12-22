@@ -41,6 +41,8 @@
 %   watershed_2D.m
 %   watershed_3D.m
 %   watershed_25D.m
+%   gc_segm.m
+%   gc_segm25D.m
 %   ---
 %
 % Links to:
@@ -49,7 +51,7 @@
 % Matlab version:
 % 2015a
 % Initially created: 5/18/2015 by Peter Ferjancic
-% Last updated this text: 9/22/2016 by PF
+% Last updated this text: 12/16/2016 by PF
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% General programming notes:
 %   -Don't touch GUI function
@@ -71,8 +73,9 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%   To do:
+%   - move to IGT gitlab after project submission
+%   - try implementing the 3d graph cuts method version
 %   - nrrd saving (done, but there are probably still bugs - use with care)
-%   - get stats button
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % cd('E:\010-work\Segmentation\GUI')
 
@@ -101,7 +104,7 @@ function varargout = GUI(varargin)
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
 % Edit the above text to modify the response to help GUI
-% Last Modified by GUIDE v2.5 07-Dec-2016 14:53:30
+% Last Modified by GUIDE v2.5 21-Dec-2016 17:39:10
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -1030,6 +1033,11 @@ function Call_Threshold_optimization_Callback(hObject, ~, handles)
     end
 end
 function Call_GANAR_Callback(hObject, ~, handles)
+
+    handles.console.String= ['> GANAR disabled for this project submission. Please provide get the DLC for just 99.99$ or final grade A for a season pass*.'];
+    % *this statement may or may not be accurate.
+    return
+
     % start GANAR on a lesion, with SELECT contour as a mask
     % check function viability
     if handles.flagSELECT==0;
@@ -1223,10 +1231,10 @@ end
 
 
 %% Work in progress
-function gc_segm_Callback(hObject, eventdata, handles)
+function gc_segm_Callback(hObject, ~, handles)
     % calls a graph cut segmentation method
     
-    %% Do we have all the data?
+    % Do we have all the data?
     if handles.flagPET==0;
         handles.console.String= ['> No PET image loaded!'];
         return
@@ -1269,6 +1277,120 @@ function gc_segm_Callback(hObject, eventdata, handles)
 
     guidata(hObject,handles);
     plotterfcn(hObject, handles)
+end
+function GC25D_Callback(hObject, ~, handles)
+    % calls a graph cut segmentation method
+    
+    %% Do we have all the data?
+    if handles.flagPET==0;
+        handles.console.String= ['> No PET image loaded!'];
+        return
+    end
+    if handles.flagCT==0;
+        handles.console.String= ['> No CT image loaded!'];
+        return
+    end
+    if handles.flagSELECT==0;
+        handles.console.String= ['> No volume selected!'];
+        return
+    end
+    
+    handles.console.String= ['> Selecting image crop ...'];
+    drawnow
+
+    %% push the data to the segmentation function
+    % get coordinates of all the voxels in the interest, get min/max
+    [y, x, z]=ind2sub(size(handles.SELECTimg), find(handles.SELECTimg>0));
+
+    % figure out crop borders
+    CTcrop=handles.CTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+    PETcrop=handles.PETimgSUV(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+    SELECTcrop=handles.SELECTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+    
+    % call the segmentation and crop result to initially selected volume
+    out=gc_segm25d(CTcrop, PETcrop, SELECTcrop);
+    out= out .* handles.SELECTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+    
+    
+    if handles.flagSEGM==0;
+        handles.SEGMimg=zeros(size(handles.PETimg));
+        handles.flagSEGM=1;
+    end
+    handles.SEGMimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1)= out;
+    
+    handles.console.String= ['> Graph cut completed.'];
+
+    guidata(hObject,handles);
+    plotterfcn(hObject, handles)
+end
+
+function all_gc_Callback(hObject, ~, handles)
+% Do we have all the data?
+    if handles.flagPET==0;
+        handles.console.String= ['> No PET image loaded!'];
+        return
+    end
+    if handles.flagCT==0;
+        handles.console.String= ['> No CT image loaded!'];
+        return
+    end
+    if handles.flagREFCONT==0;
+        handles.console.String= ['> No REFerence image loaded!'];
+        return
+    end
+
+    
+    reflist=unique(handles.REFCONTimg); % find all ref contours  
+    reflist=reflist(reflist>0);   % except 0, which is the background
+    handles.flagSELECT=1;  % show plotting of select, if not done yet
+
+    handles.SEGMimg=zeros(size(handles.PETimg));
+    handles.flagSEGM=1;
+
+    
+    for i= 1:length(reflist)
+        lesnum=reflist(i);
+        disp(lesnum)
+        handles.SELECTimg=double(handles.REFCONTimg==lesnum);
+        
+        
+        % dilate the selection twice to get something reasonable
+        dilation=ones(3, 3, 3); % define dilution matrix - a cube
+        se = strel('arbitrary', dilation);
+        handles.SELECTimg=imdilate(handles.SELECTimg, se);
+        handles.SELECTimg=imdilate(handles.SELECTimg, se);
+        % redraw
+        guidata(hObject,handles);
+        plotterfcn(hObject, handles)
+        
+        %% push the data to the segmentation function
+        % get coordinates of all the voxels in the interest, get min/max
+        [y, x, z]=ind2sub(size(handles.SELECTimg), find(handles.SELECTimg>0));
+
+        % figure out crop borders
+        CTcrop=handles.CTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+        PETcrop=handles.PETimgSUV(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+        SELECTcrop=handles.SELECTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+
+        % call the segmentation and crop result to initially selected volume
+        out=gc_segm25d(CTcrop, PETcrop, SELECTcrop);
+        
+        %% do shenanigans to not erase other contours inside ROI
+        % we're just changing contours inside ROI
+        out= out .* handles.SELECTimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+        
+        % get copy of current SEGM ROI in case there is anything there
+        temp=handles.SEGMimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1);
+        temp=temp+out; % combine the images. This will break somewhat if contours actually overlap.
+        
+        handles.SEGMimg(min(y)-1:max(y)+1,min(x)-1:max(x)+1,min(z)-1:max(z)+1)=temp;
+        % redraw
+        guidata(hObject,handles);
+        plotterfcn(hObject, handles)
+    end
+    
+    
+    
 end
 
 function neighbour_Callback(hObject, ~, handles)
@@ -1367,6 +1489,3 @@ end
 %% Create functions
 % --- Executes during object creation, after setting all properties.
 % Don't really need them usually.
-
-
-% --- Executes on button press in create_crop.

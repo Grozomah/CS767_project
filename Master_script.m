@@ -15,7 +15,7 @@ addpath('E:\005-faks\CS767\CS767_project\GCmex2.0')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Prep sample data
-open('Sandbox_1111.m')
+% open('Sandbox_1111.m')
 
 %% Get the analysis up and running
-open('gc_example.m')
+% open('gc_example.m')
