@@ -32,6 +32,6 @@ function segmIMG=gc_segm25d(CTcrop, PETcrop, SELECTcrop);
     
     se = strel(ones(2,2,2));
     segmIMG=imclose(segmIMG, se); % small fix
-    disp('Graph cut 2.5D completed')
+%     disp('Graph cut 2.5D completed')
 
 end

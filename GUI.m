@@ -248,11 +248,12 @@ function Quickload_Callback(hObject, ~, handles)
     
     if handles.Quickload_patname.String=='1'
         CT_in='1001B_B1_1ct.am';
-        CT_path='E:\010-work\1001B\B1\Processed\';
+        CT_path='data\';
+%         CT_path='E:\010-work\1001B\B1\Processed\';
         PET_in='1001B_B1_1pet_recon1_SUV.am';
-        PET_path='E:\010-work\1001B\B1\Processed\';
+        PET_path='data\';
         REFCONT_in='1001B_B1_physiciancontours.am';
-        REFCONT_path='E:\010-work\1001B\B1\Processed\';
+        REFCONT_path='data\';
     else
         patname=handles.Quickload_patname.String;
         disp(patname)
@@ -1347,10 +1348,12 @@ function all_gc_Callback(hObject, ~, handles)
     handles.SEGMimg=zeros(size(handles.PETimg));
     handles.flagSEGM=1;
 
-    
+    hwaitbar = waitbar(0,'progress');
     for i= 1:length(reflist)
+        waitbar(i/length(reflist))
+        
         lesnum=reflist(i);
-        disp(lesnum)
+%         disp(lesnum)
         handles.SELECTimg=double(handles.REFCONTimg==lesnum);
         
         
@@ -1389,8 +1392,9 @@ function all_gc_Callback(hObject, ~, handles)
         plotterfcn(hObject, handles)
     end
     
-    
-    
+    close(hwaitbar)
+    load handel
+    sound(y(1:35000),Fs)
 end
 
 function neighbour_Callback(hObject, ~, handles)

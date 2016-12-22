@@ -2,15 +2,22 @@ function out=gc_segm(CTcrop, PETcrop, SELECTcrop)
 % Perform 2d graph cut segmentation based on the PET and CT images, and
 % using SELECT as the area 
 
+%% parameters
+PETfactor=1e1;
+CTfactor=1e-1;
 
+% use variable probability? 1-yay 0-nay
+useVarProb=1;
+% -----------------
+%  No touchy fishy after this line plz.
+% (http://imgur.com/gallery/ZigXHzX)
+%% end of parameters.
 
-%% attempted transformation fix
+% transformation fix
 truncated=(PETcrop-15)/20 +15;
 PETcrop(PETcrop>15) = truncated(PETcrop>15);
 
-%% 
 out = zeros(size(CTcrop));
-
 se = strel('square',3);
 
 %% define what IS tumor
@@ -18,10 +25,13 @@ defTumor3d=zeros(size(PETcrop));
 petValues=PETcrop(SELECTcrop>0);
 defTumor3d(PETcrop>min(quantile(petValues,0.75), 15))=1;
 
-temp=(PETcrop-5)/10;
-idx= (PETcrop>5 & PETcrop<=min(quantile(petValues,0.75), 15));
-defTumor3d(idx)=temp(idx);
-
+%%%%%%% variable tumor probability here
+if useVarProb
+    temp=(PETcrop-5)/10;
+    idx= (PETcrop>5 & PETcrop<=min(quantile(petValues,0.75), 15));
+    defTumor3d(idx)=temp(idx);
+end
+%%%%%%% 
 % defTumor3d(PETimg>10)=1;
 % defTumor3d = smooth3(defTumor3d,'gaussian',3);
 
@@ -37,16 +47,15 @@ defNotTumor3d=ones(size(PETcrop))-imerode(SELECTcrop, se3d); % everything not in
 defNotTumor3d(PETcrop< max(4, quantile(petValues,0.75)))=1; 
 % defNotTumor3d = smooth3(defNotTumor3d,'gaussian',3);
 
-temp=(14-PETcrop)/10;
-defNotTumor3d(PETcrop<15)=temp(PETcrop<15);
+if useVarProb
+    % variable tumor probability here
+    temp=(14-PETcrop)/10;
+    defNotTumor3d(PETcrop<14)=temp(PETcrop<14);
+end
 
-
-
-
-outThresh   = max(quantile(PETcrop(SELECTedge), 0.95), 5);
-inThresh    = min(quantile(petValues,0.85), 15);
-disp(['In threshold: ', num2str(inThresh),', out threshold: ', num2str(outThresh)])
-
+% outThresh   = max(quantile(PETcrop(SELECTedge), 0.95), 5);
+% inThresh    = min(quantile(petValues,0.85), 15);
+% disp(['In threshold: ', num2str(inThresh),', out threshold: ', num2str(outThresh)])
 
 for slice=1:size(CTcrop, 3);
 
@@ -55,20 +64,16 @@ for slice=1:size(CTcrop, 3);
     sz = size(slicePET);
 
     im=zeros([sz,2]);
-    im(:,:,1)=slicePET *1e1;
+    im(:,:,1)=slicePET *PETfactor;
 %     max(slicePET(:))
     
-    im(:,:,2)=double(sliceCT) *1e1;
-    a=im(:,:,2);
-%     max(a(:))
-    
-    % try to segment the image into k different regions
-    k = 2;
+    im(:,:,2)=double(sliceCT) *CTfactor;
 
     % color space distance
     distance = 'sqEuclidean';
 
-    % data cost maps - optimize this!
+    % data cost maps
+    k=2;
     Dc = zeros([sz(1:2) k],'single');
 
 %     defNotTumor = SELECTcrop(:,:,slice)-imerode(SELECTcrop(:,:,slice),se);
@@ -82,12 +87,10 @@ for slice=1:size(CTcrop, 3);
         continue
     end
     
-
     mx=[1 2 1; 2 4 2; 1 2 1]/16;
     
 %     defNotTumor=conv2(conv2(defNotTumor, mx, 'same'), mx, 'same');
 %     defTumor=conv2(conv2(defTumor, mx, 'same'), mx, 'same');
-    
     
     Dc(:,:,1)=defNotTumor;
     Dc(:,:,2)=defTumor;
@@ -100,7 +103,7 @@ for slice=1:size(CTcrop, 3);
     Sc = ones(k) - eye(k);
     % spatialy varying part
     % [Hc Vc] = gradient(imfilter(rgb2gray(im),fspecial('gauss',[3 3]),'symmetric'));
-    [Hc Vc] = SpatialCues(im);
+    [Hc Vc] = SpatialCues(im); %get vertical and horisontal connection costs
 
     gch = GraphCut('open', Dc, 10*Sc, exp(-Vc*5), exp(-Hc*5));
     % [gch] = GraphCut('open', DataCost, SmoothnessCost, vC, hC);
